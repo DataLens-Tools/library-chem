@@ -1,10 +1,10 @@
-"""VOC Library – filterable table with inline structure rendering."""
+"""VOC Library – filterable table with PubChem structure images (cloud-safe)."""
 
 import streamlit as st
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from data.sample_data import VOCS
-from utils.chem_utils import draw_molecule_svg, draw_molecule_png_b64, RDKIT_AVAILABLE
+from utils.chem_utils import get_structure_image_url, RDKIT_AVAILABLE
 
 
 def render():
@@ -13,8 +13,8 @@ def render():
     st.markdown("""
     <div class='info-box'>
         Browse all Volatile Organic Compounds in the library. Filter by insect, plant,
-        chemical class, or bioactivity. Click on any row to inspect its full cheminformatics
-        profile in the <b>Molecule Explorer</b>.
+        chemical class, or bioactivity. Switch to <b>Card view</b> to see 2D molecular
+        structures rendered via PubChem.
     </div>
     """, unsafe_allow_html=True)
 
@@ -41,7 +41,6 @@ def render():
 
     st.markdown(f"**{len(df)} records** found")
 
-    # ── Toggle: table vs card view ───────────────────────────────────────────
     view_mode = st.radio("View Mode", ["📋 Table", "🃏 Cards"], horizontal=True)
 
     if view_mode == "📋 Table":
@@ -58,50 +57,55 @@ def render():
             return ""
 
         st.dataframe(
-            df[display_cols].style.applymap(color_bio, subset=["bioactivity"]),
+            df[display_cols].style.map(color_bio, subset=["bioactivity"]),
             use_container_width=True,
             height=480,
         )
 
-    else:  # Cards
+    else:
+        # ── Card view with PubChem images ─────────────────────────────────────
         cols_per_row = 2
         rows = [df.iloc[i:i+cols_per_row] for i in range(0, len(df), cols_per_row)]
+
         for row in rows:
             cols = st.columns(cols_per_row)
             for col, (_, voc) in zip(cols, row.iterrows()):
                 with col:
-                    bio_color = "#d1fae5" if voc["bioactivity"] == "Attractant" else "#fee2e2"
+                    bio_color     = "#d1fae5" if voc["bioactivity"] == "Attractant" else "#fee2e2"
                     bio_text_color = "#065f46" if voc["bioactivity"] == "Attractant" else "#991b1b"
 
                     with st.container(border=True):
-                        # Molecule image
-                        if RDKIT_AVAILABLE:
-                            b64 = draw_molecule_png_b64(voc["smiles"], 320, 180)
-                            if b64:
-                                st.markdown(
-                                    f'<img src="data:image/png;base64,{b64}" '
-                                    f'style="width:100%;border-radius:8px;background:#f8fafb;padding:4px">',
-                                    unsafe_allow_html=True,
-                                )
+                        # ── Structure image via PubChem ───────────────────────
+                        img_url = get_structure_image_url(
+                            pubchem_cid=voc.get("pubchem_cid"),
+                            smiles=voc.get("smiles"),
+                            width=320, height=180,
+                        )
+                        if img_url:
+                            st.image(img_url, use_container_width=True)
                         else:
                             st.markdown(
-                                '<div style="height:100px;background:#f0fdf4;border-radius:8px;'
-                                'display:flex;align-items:center;justify-content:center;'
-                                'color:#4a7c59;font-size:0.8rem">Install RDKit for structure</div>',
+                                '<div style="height:100px;background:#f0fdf4;'
+                                'border-radius:8px;display:flex;align-items:center;'
+                                'justify-content:center;color:#4a7c59;font-size:0.8rem">'
+                                'No structure available</div>',
                                 unsafe_allow_html=True,
                             )
 
                         st.markdown(f"**{voc['name']}**")
                         st.markdown(
-                            f'<span style="font-size:0.78rem;font-family:IBM Plex Mono,monospace;'
-                            f'color:#4a7c59">{voc["formula"]} · MW {voc["mw"]} · LogP {voc["logp"]}</span>',
+                            f'<span style="font-size:0.78rem;font-family:monospace;'
+                            f'color:#4a7c59">'
+                            f'{voc["formula"]} · MW {voc["mw"]} · LogP {voc["logp"]}'
+                            f'</span>',
                             unsafe_allow_html=True,
                         )
                         st.markdown(
                             f'<span style="background:{bio_color};color:{bio_text_color};'
                             f'padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:600">'
                             f'{voc["bioactivity"]}</span>'
-                            f'&nbsp;<span style="background:#ede9fe;color:#4c1d95;'
+                            f'&nbsp;'
+                            f'<span style="background:#ede9fe;color:#4c1d95;'
                             f'padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:600">'
                             f'{voc["class"]}</span>',
                             unsafe_allow_html=True,
