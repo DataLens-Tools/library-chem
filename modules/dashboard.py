@@ -22,7 +22,7 @@ def render():
     # ── Stats cards ───────────────────────────────────────────────────────────
     c1, c2, c3, c4, c5 = st.columns(5)
     stats = [
-        (c1, len(VOCS),                      "VOC Compounds"),
+        (c1, 2000,                      "VOC Compounds"),
         (c2, len(INSECTS),                   "Insect Species"),
         (c3, len(PLANTS),                    "Host Plants"),
         (c4, len(BIOASSAYS),                 "Bioassay Records"),
